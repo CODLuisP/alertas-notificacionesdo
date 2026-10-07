@@ -1,0 +1,27 @@
+# Archivos de entorno y secretos
+.env
+.env.*
+!.env.example
+
+# Archivos de configuración local con credenciales
+appsettings.Development.json
+appsettings.Production.json
+*.usersecrets
+
+# Compilación y paquetes
+bin/
+obj/
+out/
+publish/
+
+# IDEs y editores
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.useros
+*.sln.docstates
+
+# Logs
+*.log

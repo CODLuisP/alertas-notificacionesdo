@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Monitor SignalR - Geocercas</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+      margin: 0;
+      padding: 30px;
+    }
+    .container {
+      max-width: 950px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin-top: 0;
+      color: #38bdf8;
+    }
+    .status-card {
+      background: #1e293b;
+      padding: 18px 22px;
+      border-radius: 8px;
+      margin-bottom: 25px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+      border: 1px solid #334155;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ef4444;
+    }
+    .dot.connected {
+      background: #22c55e;
+      box-shadow: 0 0 10px #22c55e;
+    }
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    .btn-green { background: #16a34a; color: #fff; }
+    .btn-orange { background: #d97706; color: #fff; }
+    .btn-blue { background: #0284c7; color: #fff; }
+    .btn-gray { background: #334155; color: #f8fafc; }
+
+    .input-account {
+      background: #0f172a;
+      border: 1px solid #475569;
+      color: #f8fafc;
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      width: 170px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input-account:focus {
+      border-color: #38bdf8;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 30px 0 15px 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #334155;
+    }
+
+    .alerts-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .alert-card {
+      background: #1e293b;
+      border-left: 5px solid #38bdf8;
+      border-radius: 6px;
+      padding: 16px 20px;
+      animation: fadeIn 0.4s ease-out;
+      border-top: 1px solid #334155;
+      border-right: 1px solid #334155;
+      border-bottom: 1px solid #334155;
+    }
+    .alert-card.enter {
+      border-left-color: #22c55e;
+      background: #0f231c;
+    }
+    .alert-card.exit {
+      border-left-color: #f59e0b;
+      background: #231b0f;
+    }
+    .alert-card.history {
+      border-left-color: #64748b;
+      opacity: 0.95;
+    }
+    .alert-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .badge {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .badge-live { background: #dc2626; color: #fff; animation: pulse 1.5s infinite; }
+    .badge-saved { background: #1e3a8a; color: #93c5fd; }
+    .badge-enter { background: #166534; color: #86efac; border: 1px solid #22c55e; }
+    .badge-exit { background: #854d0e; color: #fde047; border: 1px solid #f59e0b; }
+    .badge-history { background: #334155; color: #94a3b8; }
+    .device-plate {
+      font-size: 18px;
+      font-weight: bold;
+      color: #f1f5f9;
+    }
+    .time {
+      font-size: 13px;
+      color: #94a3b8;
+    }
+    .details {
+      color: #cbd5e1;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 25px;
+      color: #64748b;
+      background: #1e293b;
+      border-radius: 8px;
+      border: 1px dashed #334155;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 id="pageTitle">🛰️ Monitor de Geocercas</h1>
+    
+    <div class="status-card">
+      <div style="flex: 1; min-width: 300px;">
+        <div class="status-badge">
+          <span id="statusDot" class="dot"></span>
+          <span id="statusText">Conectando con SignalR...</span>
+        </div>
+        <div style="font-size: 13px; color: #94a3b8; margin-top: 5px;">
+          Escuchando alertas de la cuenta: <strong id="currentAccountLabel" style="color: #38bdf8;">movilbus</strong> en <code>http://localhost:5000</code>
+        </div>
+        
+        <!-- SELECTOR DINÁMICO DE CUENTA -->
+        <div style="margin-top: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <input type="text" id="accountInput" value="movilbus" placeholder="Escribe una cuenta..." 
+                 class="input-account"
+                 onkeydown="if(event.key==='Enter') cambiarCuenta()" />
+          <button class="btn btn-blue" onclick="cambiarCuenta()">🔄 Cambiar Cuenta</button>
+        </div>
+      </div>
+      
+      <div class="btn-group">
+        <button class="btn btn-green" onclick="simularEntrada()">🧪 Simular Entrada</button>
+        <button class="btn btn-orange" onclick="simularSalida()">🧪 Simular Salida</button>
+        <button class="btn btn-blue" onclick="loadAll()">🔄 Recargar Todo</button>
+      </div>
+    </div>
+
+    <!-- SECCIÓN 1: ALERTAS INDIVIDUALES (EN VIVO + HISTORIAL DE ALERTAS PERSISTENTE) -->
+    <div class="section-title">⚡ Alertas de Geocerca (Eventos Individuales de Entrada y Salida - No Desaparecen)</div>
+    <div id="liveAlertsContainer" class="alerts-container">
+      <div id="liveEmptyState" class="empty-state">
+        <p style="margin: 0; font-size: 15px;">Cargando historial de alertas de la base de datos...</p>
+      </div>
+    </div>
+
+    <!-- SECCIÓN 2: HISTORIAL DE VISITAS COMPLETAS EN BD -->
+    <div class="section-title">📋 Historial de Visitas Consolidadas (Entrada + Salida + Duración)</div>
+    <div id="historyContainer" class="alerts-container">
+      <div id="historyEmptyState" class="empty-state">
+        <p style="margin: 0;">Cargando visitas de la base de datos...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "http://localhost:5000";
+    const HUB_URL = API_BASE + "/notificationsHub";
+    const STATIC_TOKEN = "trackvel-static-token-2026";
+
+    // Cuenta dinámica: por defecto 'movilbus' o la que el usuario guardó previamente
+    let currentAccountId = localStorage.getItem("trackvel_account_id") || "movilbus";
+
+    const statusDot = document.getElementById("statusDot");
+    const statusText = document.getElementById("statusText");
+    const accountInput = document.getElementById("accountInput");
+    const currentAccountLabel = document.getElementById("currentAccountLabel");
+    const liveAlertsContainer = document.getElementById("liveAlertsContainer");
+    const liveEmptyState = document.getElementById("liveEmptyState");
+    const historyContainer = document.getElementById("historyContainer");
+    const historyEmptyState = document.getElementById("historyEmptyState");
+
+    // Sincronizar input y etiqueta inicial
+    accountInput.value = currentAccountId;
+    currentAccountLabel.innerText = currentAccountId;
+
+    // 1. Configurar conexión SignalR
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl(HUB_URL)
+      .withAutomaticReconnect()
+      .build();
+
+    // 2. Escuchar alertas en vivo del backend
+    connection.on("GeofenceAlert", (payload) => {
+      console.log("¡Alerta en vivo recibida por SignalR!", payload);
+      // Solo mostrar si corresponde a la cuenta seleccionada (o si viene para ella)
+      if (!payload.accountID || payload.accountID.toLowerCase() === currentAccountId.toLowerCase()) {
+        addAlertCardToUI(payload, true);
+      }
+    });
+
+    // 3. Conectar a SignalR
+    async function start() {
+      try {
+        await connection.start();
+        console.log("Conectado a SignalR");
+        
+        await connection.invoke("JoinAccountGroup", currentAccountId);
+        
+        statusDot.classList.add("connected");
+        statusText.innerHTML = "🟢 Conectado al grupo de cuenta '<strong>" + currentAccountId + "</strong>'";
+        
+        // Cargar tanto las alertas individuales como las visitas consolidadas
+        loadAll();
+      } catch (err) {
+        console.error("Error al conectar:", err);
+        statusDot.classList.remove("connected");
+        statusText.innerText = "🔴 Desconectado. Reintentando en 3s...";
+        setTimeout(start, 3000);
+      }
+    }
+
+    connection.onclose(() => {
+      statusDot.classList.remove("connected");
+      statusText.innerText = "🔴 Conexión perdida. Reconectando...";
+    });
+
+    connection.onreconnected(async () => {
+      statusDot.classList.add("connected");
+      statusText.innerHTML = "🟢 Reconectado al grupo '<strong>" + currentAccountId + "</strong>'";
+      await connection.invoke("JoinAccountGroup", currentAccountId);
+    });
+
+    // Cambiar la cuenta dinámicamente
+    async function cambiarCuenta() {
+      const nuevoValor = (accountInput.value || "").trim();
+      if (!nuevoValor) {
+        alert("Por favor ingresa un accountID válido.");
+        return;
+      }
+
+      currentAccountId = nuevoValor;
+      localStorage.setItem("trackvel_account_id", currentAccountId);
+      currentAccountLabel.innerText = currentAccountId;
+
+      // Unirse al nuevo grupo en SignalR
+      if (connection && connection.state === signalR.HubConnectionState.Connected) {
+        try {
+          await connection.invoke("JoinAccountGroup", currentAccountId);
+          statusText.innerHTML = "🟢 Conectado al grupo de cuenta '<strong>" + currentAccountId + "</strong>'";
+        } catch (err) {
+          console.error("Error al unirse al grupo:", err);
+        }
+      }
+
+      // Reiniciar estado visual
+      liveAlertsContainer.innerHTML = "";
+      liveEmptyState.style.display = "block";
+      liveEmptyState.innerHTML = "<p style='margin: 0;'>Cargando alertas de " + currentAccountId + "...</p>";
+      liveAlertsContainer.appendChild(liveEmptyState);
+
+      historyContainer.innerHTML = "";
+      historyEmptyState.style.display = "block";
+      historyEmptyState.innerHTML = "<p style='margin: 0;'>Cargando visitas de " + currentAccountId + "...</p>";
+      historyContainer.appendChild(historyEmptyState);
+
+      // Recargar datos de la nueva cuenta
+      loadAll();
+    }
+
+    function loadAll() {
+      loadAlertsHistory();
+      loadVisitasHistory();
+    }
+
+    // 4. Cargar historial de alertas individuales de deviceevent para la cuenta actual
+    async function loadAlertsHistory() {
+      try {
+        const res = await fetch(API_BASE + "/api/reportes/geocercas/alertas?accountID=" + encodeURIComponent(currentAccountId) + "&limit=25", {
+          headers: { "Authorization": "Bearer " + STATIC_TOKEN }
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const alertas = await res.json();
+
+        liveAlertsContainer.innerHTML = "";
+        if (alertas && alertas.length > 0) {
+          liveEmptyState.style.display = "none";
+          alertas.forEach(a => {
+            addAlertCardToUI(a, false);
+          });
+        } else {
+          liveEmptyState.style.display = "block";
+          liveEmptyState.innerHTML = "<p style='margin: 0;'>No hay alertas registradas aún para la cuenta '<strong>" + currentAccountId + "</strong>'.</p>";
+          liveAlertsContainer.appendChild(liveEmptyState);
+        }
+      } catch (err) {
+        console.warn("No se pudo cargar el historial de alertas:", err);
+      }
+    }
+
+    // 5. Agregar tarjeta de alerta individual
+    function addAlertCardToUI(alert, isLive) {
+      if (liveEmptyState) liveEmptyState.style.display = "none";
+
+      const isExit = alert.eventType === "geofenceExit";
+      const card = document.createElement("div");
+      card.className = "alert-card " + (isExit ? "exit" : "enter");
+
+      const badgeText = isExit ? "SALIDA DE GEOCERCA" : "ENTRADA A GEOCERCA";
+      const badgeClass = isExit ? "badge-exit" : "badge-enter";
+
+      let durationHtml = "";
+      if (isExit && alert.durationMinutes !== null && alert.durationMinutes !== undefined) {
+        durationHtml = "⏱️ <strong>Permanencia calculada:</strong> " + alert.durationMinutes + " minutos<br>";
+      }
+
+      const timeStr = alert.serverTimeUtc 
+        ? new Date(alert.serverTimeUtc).toLocaleString() 
+        : new Date().toLocaleString();
+
+      const liveBadge = isLive 
+        ? "<span class='badge badge-live'>🔴 EN VIVO</span> " 
+        : "<span class='badge badge-saved'>💾 GUARDADA EN BD</span> ";
+
+      card.innerHTML = 
+        "<div class='alert-header'>" +
+          "<span class='device-plate'>🚗 " + (alert.deviceID || "N/A") + "</span>" +
+          "<div>" +
+            liveBadge +
+            "<span class='badge " + badgeClass + "'>" + badgeText + "</span>" +
+          "</div>" +
+        "</div>" +
+        "<div class='details'>" +
+          "📍 <strong>Geocerca:</strong> " + (alert.geofenceName || ("ID " + alert.geofenceID)) + "<br>" +
+          durationHtml +
+          "🌍 <strong>Coordenadas:</strong> " + alert.latitude + ", " + alert.longitude + "<br>" +
+          "<span class='time'>🕒 " + timeStr + "</span>" +
+        "</div>";
+
+      // Si es en vivo va arriba de todo; si es del historial se inserta al final
+      if (isLive) {
+        liveAlertsContainer.insertBefore(card, liveAlertsContainer.firstChild);
+      } else {
+        liveAlertsContainer.appendChild(card);
+      }
+    }
+
+    // 6. Cargar visitas registradas en visitas_geocerca (consolidadas)
+    async function loadVisitasHistory() {
+      try {
+        historyContainer.innerHTML = "";
+        historyEmptyState.style.display = "block";
+        historyContainer.appendChild(historyEmptyState);
+
+        const res = await fetch(API_BASE + "/api/reportes/geocercas/visitas?accountID=" + encodeURIComponent(currentAccountId) + "&pageSize=20", {
+          headers: { "Authorization": "Bearer " + STATIC_TOKEN }
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        
+        historyContainer.innerHTML = "";
+        if (data.visitas && data.visitas.length > 0) {
+          historyEmptyState.style.display = "none";
+          data.visitas.forEach(v => {
+            const card = document.createElement("div");
+            card.className = "alert-card history";
+
+            const timeSalida = v.fechaSalida ? new Date(v.fechaSalida).toLocaleString() : "N/A";
+            const timeEntrada = v.fechaEntrada ? new Date(v.fechaEntrada).toLocaleString() : "N/A";
+            const duracion = v.duracionMinutos !== null && v.duracionMinutos !== undefined 
+              ? v.duracionMinutos + " min" 
+              : "N/A";
+
+            card.innerHTML = 
+              "<div class='alert-header'>" +
+                "<span class='device-plate'>🚗 " + (v.deviceID || "N/A") + "</span>" +
+                "<span class='badge badge-history'>VISITA CONSOLIDADA</span>" +
+              "</div>" +
+              "<div class='details'>" +
+                "📍 <strong>Geocerca:</strong> " + (v.geofenceName || ("ID " + v.geofenceID)) + "<br>" +
+                "⏱️ <strong>Duración total:</strong> " + duracion + "<br>" +
+                "🟢 <strong>Entrada:</strong> " + timeEntrada + " &nbsp;|&nbsp; 🔴 <strong>Salida:</strong> " + timeSalida + "<br>" +
+              "</div>";
+
+            historyContainer.appendChild(card);
+          });
+        } else {
+          historyEmptyState.style.display = "block";
+          historyEmptyState.innerHTML = "<p style='margin: 0;'>No hay visitas consolidadas aún para la cuenta '<strong>" + currentAccountId + "</strong>'.</p>";
+          historyContainer.appendChild(historyEmptyState);
+        }
+      } catch (err) {
+        console.warn("No se pudo cargar el historial de visitas:", err);
+        historyEmptyState.innerHTML = "<p>No se pudo conectar a la API de reportes.</p>";
+      }
+    }
+
+    function simularEntrada() {
+      addAlertCardToUI({
+        accountID: currentAccountId,
+        deviceID: "s110-cml340",
+        geofenceID: 5,
+        geofenceName: "Planta Central Lima",
+        eventType: "geofenceEnter",
+        serverTimeUtc: new Date().toISOString(),
+        latitude: -12.046374,
+        longitude: -77.042793,
+        durationMinutes: null
+      }, true);
+    }
+
+    function simularSalida() {
+      addAlertCardToUI({
+        accountID: currentAccountId,
+        deviceID: "s110-cml340",
+        geofenceID: 5,
+        geofenceName: "Planta Central Lima",
+        eventType: "geofenceExit",
+        serverTimeUtc: new Date().toISOString(),
+        latitude: -12.046390,
+        longitude: -77.042810,
+        durationMinutes: 45
+      }, true);
+    }
+
+    start();
+  </script>
+</body>
+</html>

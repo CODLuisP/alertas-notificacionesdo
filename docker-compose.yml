@@ -1,0 +1,26 @@
+services:
+  geocerca-notifications:
+    build:
+      context: ./GeocercaNotificationsService
+      dockerfile: Dockerfile
+    container_name: notificaciones-trackbell
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      # Expuesto ÚNICAMENTE en localhost para Nginx (puerto 3008 en host -> 8080 en contenedor)
+      - "127.0.0.1:3008:8080"
+    extra_hosts:
+      # Permite conectar a servicios locales del host (ej. MySQL en puerto 3306)
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
