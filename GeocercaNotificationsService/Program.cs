@@ -129,12 +129,34 @@ app.UseForwardedHeaders();
 app.UseCors();
 
 // Swagger UI: configurable vía variable EnableSwagger (default: true).
-// Usa ruta relativa 'v1/swagger.json' para resolver correctamente tanto en localhost
-// como detrás del subpath /notificaciones-trackbell/ de Nginx en DigitalOcean.
+// Configura PreSerializeFilters para que cuando se use detrás de Nginx, el botón 'Execute'
+// agregue el prefijo /notificaciones-trackbell a todas las URLs de petición.
 var enableSwagger = app.Configuration.GetValue("EnableSwagger", true);
 if (enableSwagger)
 {
-    app.UseSwagger();
+    app.UseSwagger(c =>
+    {
+        c.PreSerializeFilters.Add((swaggerDoc, httpReq) =>
+        {
+            var prefix = httpReq.Headers["X-Forwarded-Prefix"].FirstOrDefault()
+                         ?? app.Configuration.GetValue<string>("SwaggerPathBase");
+
+            // Si viene a través de Nginx (detectado por encabezados X-Forwarded-* o host de producción)
+            if (string.IsNullOrWhiteSpace(prefix) && (httpReq.Headers.ContainsKey("X-Forwarded-Proto") || httpReq.Headers.ContainsKey("X-Forwarded-For")))
+            {
+                prefix = "/notificaciones-trackbell";
+            }
+
+            if (!string.IsNullOrWhiteSpace(prefix))
+            {
+                swaggerDoc.Servers = new List<OpenApiServer>
+                {
+                    new OpenApiServer { Url = prefix.TrimEnd('/') }
+                };
+            }
+        });
+    });
+
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("v1/swagger.json", "Geocerca Service v1");
