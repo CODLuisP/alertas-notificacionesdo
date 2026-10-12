@@ -96,6 +96,13 @@ public sealed class VisitaGeocerca
     public bool EntradaIncompleta { get; set; }
 
     /// <summary>
+    /// true si la visita terminó porque se desvinculó el vehículo de la geocerca estando adentro
+    /// (el vehículo no salió; la "salida" es el momento de la desvinculación).
+    /// </summary>
+    /// <example>false</example>
+    public bool SalidaPorDesvinculacion { get; set; }
+
+    /// <summary>
     /// Fecha y hora en que se registró la fila en la tabla visitas_geocerca.
     /// </summary>
     /// <example>2026-09-22T15:15:02Z</example>

@@ -1,6 +1,7 @@
 using Dapper;
 using GeocercaNotificationsService.Hubs;
 using GeocercaNotificationsService.Models;
+using GeocercaNotificationsService.Services;
 using Microsoft.AspNetCore.SignalR;
 using MySqlConnector;
 
@@ -11,20 +12,25 @@ namespace GeocercaNotificationsService.Handlers;
 /// Para geofenceExit, calcula la duración dentro de la geocerca buscando
 /// el geofenceEnter más reciente del mismo deviceID y geofenceID,
 /// e inserta una fila en visitas_geocerca.
+/// Si la "salida" ocurrió con el vehículo todavía dentro (se lo desvinculó de la geocerca),
+/// no se alerta y la visita se guarda marcada con salida_por_desvinculacion = 1.
 /// </summary>
 public sealed class GeofenceEventHandler : IEventHandler
 {
     private readonly IHubContext<NotificationsHub> _hubContext;
     private readonly IConfiguration _configuration;
+    private readonly IGeofenceGeometryService _geometry;
     private readonly ILogger<GeofenceEventHandler> _logger;
 
     public GeofenceEventHandler(
         IHubContext<NotificationsHub> hubContext,
         IConfiguration configuration,
+        IGeofenceGeometryService geometry,
         ILogger<GeofenceEventHandler> logger)
     {
         _hubContext = hubContext;
         _configuration = configuration;
+        _geometry = geometry;
         _logger = logger;
     }
 
@@ -45,6 +51,7 @@ public sealed class GeofenceEventHandler : IEventHandler
     {
         EnterEventMatch? enterMatch = null;
         int? durationMinutes = null;
+        bool unlinkExit = false;
 
         bool isExit = string.Equals(evt.EventType, "geofenceExit", StringComparison.OrdinalIgnoreCase);
 
@@ -52,9 +59,35 @@ public sealed class GeofenceEventHandler : IEventHandler
         {
             enterMatch = await FindMatchingEnterAsync(evt);
             durationMinutes = enterMatch?.DurationMinutes;
+            unlinkExit = await _geometry.IsUnlinkExitAsync(evt, ct);
         }
 
-        // ── 1. Enviar alerta por SignalR ────────────────────────────────────
+        // ── 1. Enviar alerta por SignalR (no para desvinculaciones: el vehículo no salió) ──
+        if (!unlinkExit)
+        {
+            await SendAlertAsync(evt, durationMinutes, ct);
+        }
+
+        // ── 2. Insertar en visitas_geocerca (solo exits, independiente del SignalR) ──
+        if (isExit)
+        {
+            try
+            {
+                await InsertVisitaGeocercaAsync(evt, enterMatch, unlinkExit);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error al insertar en visitas_geocerca para evento_salida_id={EventId}.",
+                    evt.Id);
+            }
+        }
+
+        return true;
+    }
+
+    private async Task SendAlertAsync(DeviceEvent evt, int? durationMinutes, CancellationToken ct)
+    {
         var payload = new GeofenceAlertPayload
         {
             AccountID = evt.AccountID,
@@ -72,24 +105,6 @@ public sealed class GeofenceEventHandler : IEventHandler
         await _hubContext.Clients
             .Group(evt.AccountID)
             .SendAsync("GeofenceAlert", payload, ct);
-
-        // ── 2. Insertar en visitas_geocerca (solo exits, independiente del SignalR) ──
-        if (isExit)
-        {
-            try
-            {
-                await InsertVisitaGeocercaAsync(evt, enterMatch);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex,
-                    "Error al insertar en visitas_geocerca para evento_salida_id={EventId}. " +
-                    "La notificación SignalR SÍ se envió correctamente.",
-                    evt.Id);
-            }
-        }
-
-        return true;
     }
 
     /// <summary>
@@ -152,7 +167,7 @@ public sealed class GeofenceEventHandler : IEventHandler
     /// Inserta una fila en visitas_geocerca con los datos de la visita completa.
     /// Solo se llama para eventos geofenceExit.
     /// </summary>
-    private async Task InsertVisitaGeocercaAsync(DeviceEvent exitEvent, EnterEventMatch? enterMatch)
+    private async Task InsertVisitaGeocercaAsync(DeviceEvent exitEvent, EnterEventMatch? enterMatch, bool unlinkExit)
     {
         const string sql = """
             INSERT INTO visitas_geocerca
@@ -161,14 +176,14 @@ public sealed class GeofenceEventHandler : IEventHandler
                  latitud_entrada, longitud_entrada,
                  latitud_salida, longitud_salida,
                  evento_entrada_id, evento_salida_id,
-                 entrada_incompleta)
+                 entrada_incompleta, salida_por_desvinculacion)
             VALUES
                 (@AccountID, @DeviceID, @GeofenceID, @GeofenceName,
                  @FechaEntrada, @FechaSalida, @DuracionMinutos,
                  @LatitudEntrada, @LongitudEntrada,
                  @LatitudSalida, @LongitudSalida,
                  @EventoEntradaId, @EventoSalidaId,
-                 @EntradaIncompleta)
+                 @EntradaIncompleta, @SalidaPorDesvinculacion)
             """;
 
         var connectionString = _configuration.GetConnectionString("GtsDatabase");
@@ -192,12 +207,13 @@ public sealed class GeofenceEventHandler : IEventHandler
             LongitudSalida = exitEvent.Longitude,
             EventoEntradaId = enterMatch?.EnterId,
             EventoSalidaId = exitEvent.Id,
-            EntradaIncompleta = enterMatch is null ? 1 : 0
+            EntradaIncompleta = enterMatch is null ? 1 : 0,
+            SalidaPorDesvinculacion = unlinkExit ? 1 : 0
         });
 
         _logger.LogDebug(
             "Visita de geocerca registrada: deviceID={DeviceID}, geofenceID={GeofenceID}, " +
-            "evento_salida_id={EventId}, entrada_incompleta={Incompleta}",
-            exitEvent.DeviceID, exitEvent.GeofenceID, exitEvent.Id, enterMatch is null);
+            "evento_salida_id={EventId}, entrada_incompleta={Incompleta}, salida_por_desvinculacion={Desvinculacion}",
+            exitEvent.DeviceID, exitEvent.GeofenceID, exitEvent.Id, enterMatch is null, unlinkExit);
     }
 }

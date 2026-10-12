@@ -32,6 +32,7 @@ builder.Services.AddScoped<IVisitasGeocercaRepository, VisitasGeocercaRepository
 builder.Services.AddSignalR();
 
 // ── 5. Handlers de eventos ───────────────────────────────────────────────────
+builder.Services.AddScoped<IGeofenceGeometryService, GeofenceGeometryService>();
 builder.Services.AddScoped<IEventHandler, GeofenceEventHandler>();
 builder.Services.AddScoped<EventHandlerRegistry>();
 

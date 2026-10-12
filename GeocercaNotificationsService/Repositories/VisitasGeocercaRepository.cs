@@ -78,7 +78,9 @@ public sealed class VisitasGeocercaRepository : IVisitasGeocercaRepository
                    latitud_entrada AS LatitudEntrada, longitud_entrada AS LongitudEntrada,
                    latitud_salida AS LatitudSalida, longitud_salida AS LongitudSalida,
                    evento_entrada_id AS EventoEntradaId, evento_salida_id AS EventoSalidaId,
-                   entrada_incompleta AS EntradaIncompleta, fecha_registro AS FechaRegistro
+                   entrada_incompleta AS EntradaIncompleta,
+                   salida_por_desvinculacion AS SalidaPorDesvinculacion,
+                   fecha_registro AS FechaRegistro
             FROM visitas_geocerca {where}
             ORDER BY fecha_salida DESC
             LIMIT @PageSize OFFSET @Offset
@@ -155,7 +157,9 @@ public sealed class VisitasGeocercaRepository : IVisitasGeocercaRepository
                    latitud_entrada AS LatitudEntrada, longitud_entrada AS LongitudEntrada,
                    latitud_salida AS LatitudSalida, longitud_salida AS LongitudSalida,
                    evento_entrada_id AS EventoEntradaId, evento_salida_id AS EventoSalidaId,
-                   entrada_incompleta AS EntradaIncompleta, fecha_registro AS FechaRegistro
+                   entrada_incompleta AS EntradaIncompleta,
+                   salida_por_desvinculacion AS SalidaPorDesvinculacion,
+                   fecha_registro AS FechaRegistro
             FROM visitas_geocerca
             WHERE id = @Id AND accountID = @AccountID
             """;
@@ -176,7 +180,14 @@ public sealed class VisitasGeocercaRepository : IVisitasGeocercaRepository
         int limit = 50,
         CancellationToken ct = default)
     {
-        var where = new StringBuilder("WHERE accountID = @AccountID AND eventType IN ('geofenceEnter', 'geofenceExit')");
+        // Las salidas por desvinculación no son salidas reales: no se listan como alertas.
+        var where = new StringBuilder("""
+            WHERE accountID = @AccountID AND eventType IN ('geofenceEnter', 'geofenceExit')
+              AND NOT EXISTS (
+                  SELECT 1 FROM visitas_geocerca v
+                  WHERE v.evento_salida_id = deviceevent.id AND v.salida_por_desvinculacion = 1
+              )
+            """);
         var parameters = new DynamicParameters();
         parameters.Add("AccountID", accountID);
 

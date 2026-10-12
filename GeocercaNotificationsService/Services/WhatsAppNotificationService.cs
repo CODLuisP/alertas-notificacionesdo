@@ -14,16 +14,19 @@ public sealed class WhatsAppNotificationService : IWhatsAppNotificationService
 
     private readonly IWhatsAppClient _whatsAppClient;
     private readonly IConfiguration _configuration;
+    private readonly IGeofenceGeometryService _geometry;
     private readonly WhatsAppSettings _settings;
     private readonly ILogger<WhatsAppNotificationService> _logger;
 
     public WhatsAppNotificationService(
         IWhatsAppClient whatsAppClient,
         IConfiguration configuration,
+        IGeofenceGeometryService geometry,
         ILogger<WhatsAppNotificationService> logger)
     {
         _whatsAppClient = whatsAppClient;
         _configuration = configuration;
+        _geometry = geometry;
         _settings = WhatsAppSettings.Load(configuration);
         _logger = logger;
     }
@@ -46,6 +49,15 @@ public sealed class WhatsAppNotificationService : IWhatsAppNotificationService
         if (evt.GeofenceID is null)
         {
             _logger.LogDebug("Evento id={EventId} no tiene geofenceID asignado. Descartando para WhatsApp.", evt.Id);
+            await MarkEventProcessedAsync(evt.Id, 1);
+            return true;
+        }
+
+        // Una "salida" con el vehículo todavía adentro es una desvinculación, no una salida real:
+        // no se avisa por WhatsApp (se marca como descartado).
+        if (string.Equals(evt.EventType, "geofenceExit", StringComparison.OrdinalIgnoreCase) &&
+            await _geometry.IsUnlinkExitAsync(evt, ct))
+        {
             await MarkEventProcessedAsync(evt.Id, 1);
             return true;
         }
