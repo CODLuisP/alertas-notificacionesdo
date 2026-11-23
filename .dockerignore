@@ -11,4 +11,8 @@
 **/appsettings.Production.json
 **/README.md
 **/DEPLOY.md
+**/data
+**/*.db
+**/*.db-wal
+**/*.db-shm
 **/*.log

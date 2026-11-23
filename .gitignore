@@ -23,5 +23,11 @@ publish/
 *.useros
 *.sln.docstates
 
+# Base de datos SQLite embebida (datos en tiempo de ejecución)
+data/
+*.db
+*.db-wal
+*.db-shm
+
 # Logs
 *.log

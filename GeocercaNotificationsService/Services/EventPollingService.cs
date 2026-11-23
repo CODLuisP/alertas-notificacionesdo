@@ -60,16 +60,27 @@ public sealed class EventPollingService : BackgroundService
             return;
         }
 
-        // Construir la cláusula IN dinámicamente según los handlers registrados
+        // Construir la cláusula IN dinámicamente según los handlers registrados.
+        // Para geocercas (geofenceEnter/geofenceExit) no se aplica filtro de antigüedad para no perder
+        // el registro en visitas_geocerca. Para las demás alertas sí se filtran por AlertMaxAgeMinutes
+        // para que las filas históricas en deviceevent no bloqueen ni inunden el tiempo real.
+        var maxAgeMinutes = _configuration.GetValue("AlertMaxAgeMinutes", 5);
+        var minAlertServerTime = maxAgeMinutes > 0
+            ? DateTimeOffset.UtcNow.ToUnixTimeSeconds() - (maxAgeMinutes * 60L)
+            : 0L;
+
         var inClause = string.Join(", ", supportedTypes.Select((_, i) => $"@type{i}"));
         var sql = $"""
             SELECT * FROM deviceevent
-            WHERE eventType IN ({inClause}) AND isEnviado = 0
+            WHERE eventType IN ({inClause})
+              AND isEnviado = 0
+              AND (eventType IN ('geofenceEnter', 'geofenceExit') OR serverTime >= @MinAlertServerTime)
             ORDER BY serverTime ASC
-            LIMIT 50
+            LIMIT 100
             """;
 
         var parameters = new DynamicParameters();
+        parameters.Add("MinAlertServerTime", minAlertServerTime);
         var typeList = supportedTypes.ToList();
         for (int i = 0; i < typeList.Count; i++)
         {

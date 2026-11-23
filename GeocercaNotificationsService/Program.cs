@@ -27,6 +27,7 @@ builder.Services.AddControllers();
 
 // ── 3. Repositorios ───────────────────────────────────────────────────────────
 builder.Services.AddScoped<IVisitasGeocercaRepository, VisitasGeocercaRepository>();
+builder.Services.AddSingleton<IConfiguracionRepository, ConfiguracionRepository>();
 
 // ── 4. SignalR ────────────────────────────────────────────────────────────────
 builder.Services.AddSignalR();
@@ -34,6 +35,7 @@ builder.Services.AddSignalR();
 // ── 5. Handlers de eventos ───────────────────────────────────────────────────
 builder.Services.AddScoped<IGeofenceGeometryService, GeofenceGeometryService>();
 builder.Services.AddScoped<IEventHandler, GeofenceEventHandler>();
+builder.Services.AddScoped<IEventHandler, DeviceAlertEventHandler>();
 builder.Services.AddScoped<EventHandlerRegistry>();
 
 // ── 6. Background services de sondeo ─────────────────────────────────────────

@@ -1,6 +1,7 @@
 using Dapper;
 using GeocercaNotificationsService.Hubs;
 using GeocercaNotificationsService.Models;
+using GeocercaNotificationsService.Repositories;
 using GeocercaNotificationsService.Services;
 using Microsoft.AspNetCore.SignalR;
 using MySqlConnector;
@@ -20,17 +21,20 @@ public sealed class GeofenceEventHandler : IEventHandler
     private readonly IHubContext<NotificationsHub> _hubContext;
     private readonly IConfiguration _configuration;
     private readonly IGeofenceGeometryService _geometry;
+    private readonly IConfiguracionRepository _configRepo;
     private readonly ILogger<GeofenceEventHandler> _logger;
 
     public GeofenceEventHandler(
         IHubContext<NotificationsHub> hubContext,
         IConfiguration configuration,
         IGeofenceGeometryService geometry,
+        IConfiguracionRepository configRepo,
         ILogger<GeofenceEventHandler> logger)
     {
         _hubContext = hubContext;
         _configuration = configuration;
         _geometry = geometry;
+        _configRepo = configRepo;
         _logger = logger;
     }
 
@@ -62,10 +66,21 @@ public sealed class GeofenceEventHandler : IEventHandler
             unlinkExit = await _geometry.IsUnlinkExitAsync(evt, ct);
         }
 
-        // ── 1. Enviar alerta por SignalR (no para desvinculaciones: el vehículo no salió) ──
+        // ── 1. Enviar alerta por SignalR (no para desvinculaciones y solo si la cuenta la tiene activa) ──
         if (!unlinkExit)
         {
-            await SendAlertAsync(evt, durationMinutes, ct);
+            var eventKey = AlertEventCatalog.ResolveEventKey(evt.EventType, evt.AlarmType);
+            var alertConfig = await _configRepo.GetActiveAlertConfigAsync(evt.AccountID, eventKey, ct);
+            if (alertConfig is not null)
+            {
+                await SendAlertAsync(evt, durationMinutes, ct);
+            }
+            else
+            {
+                _logger.LogDebug(
+                    "Alerta de geocerca '{EventKey}' desactivada para accountID='{AccountID}', SignalR omitido (visitas_geocerca sigue normal).",
+                    eventKey, evt.AccountID);
+            }
         }
 
         // ── 2. Insertar en visitas_geocerca (solo exits, independiente del SignalR) ──

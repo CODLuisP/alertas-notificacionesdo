@@ -20,7 +20,9 @@ ENV TZ=America/Lima
 RUN apt-get update \
     && apt-get install -y --no-install-recommends tzdata curl \
     && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /app/data \
+    && chown -R app:app /app/data
 
 # Usar el usuario no-root estándar de .NET 8 (app, UID 1654)
 USER app

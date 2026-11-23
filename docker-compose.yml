@@ -10,6 +10,9 @@ services:
     ports:
       # Expuesto ÚNICAMENTE en localhost para Nginx (puerto 3008 en host -> 8080 en contenedor)
       - "127.0.0.1:3008:8080"
+    volumes:
+      # Base de datos SQLite embebida con preferencias y configuración por cuenta
+      - ./data:/app/data
     extra_hosts:
       # Permite conectar a servicios locales del host (ej. MySQL en puerto 3306)
       - "host.docker.internal:host-gateway"
