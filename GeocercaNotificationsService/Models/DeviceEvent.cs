@@ -17,8 +17,8 @@ public sealed class DeviceEvent
 
     public double Latitude { get; set; }
     public double Longitude { get; set; }
-    public double Speed { get; set; }
-    public bool Ignition { get; set; }
+    public double? Speed { get; set; }
+    public bool? Ignition { get; set; }
     public string? AlarmType { get; set; }
     public int? GeofenceID { get; set; }
     public string? GeofenceName { get; set; }

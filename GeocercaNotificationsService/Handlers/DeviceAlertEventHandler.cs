@@ -82,8 +82,8 @@ public sealed class DeviceAlertEventHandler : IEventHandler
             ServerTimeUtc = evt.ServerTimeUtc.ToString("o"),
             Latitude = evt.Latitude,
             Longitude = evt.Longitude,
-            Speed = evt.Speed,
-            Ignition = evt.Ignition,
+            Speed = evt.Speed ?? 0,
+            Ignition = evt.Ignition ?? false,
             Sonido = alertConfig.Sonido,
             Volumen = alertConfig.Volumen,
             RepetirHastaOk = alertConfig.RepetirHastaOk

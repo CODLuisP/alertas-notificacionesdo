@@ -160,8 +160,8 @@ public sealed class AlertasController : ControllerBase
                     ServerTimeUtc = evt.ServerTimeUtc.ToString("o"),
                     Latitude = evt.Latitude,
                     Longitude = evt.Longitude,
-                    Speed = evt.Speed,
-                    Ignition = evt.Ignition
+                    Speed = evt.Speed ?? 0,
+                    Ignition = evt.Ignition ?? false
                 });
 
                 if (results.Count >= limit) break;
