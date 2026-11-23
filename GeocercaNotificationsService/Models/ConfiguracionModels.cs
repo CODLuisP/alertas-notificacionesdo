@@ -68,7 +68,7 @@ public sealed class GuardarAlertasConfigRequest
 /// <summary>
 /// Configuración de límites de velocidad (pestaña "Límites de velocidad").
 /// </summary>
-public sealed class LimitesVelocidadDto
+public class LimitesVelocidadDto
 {
     /// <summary>
     /// Modo de aplicación: "flota" o "vehiculo".
@@ -80,6 +80,14 @@ public sealed class LimitesVelocidadDto
     /// Límites específicos por placa/deviceID (ej: { "306-DAL462": 80 }).
     /// </summary>
     public Dictionary<string, int> PorVehiculo { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+/// <summary>
+/// Respuesta del PUT /api/configuracion/limites-velocidad incluyendo el resumen de sincronización con Traccar.
+/// </summary>
+public sealed class GuardarLimitesVelocidadResponse : LimitesVelocidadDto
+{
+    public TraccarSpeedLimitSyncResult? TraccarSync { get; set; }
 }
 
 /// <summary>

@@ -41,8 +41,9 @@ builder.Services.AddScoped<EventHandlerRegistry>();
 // ── 6. Background services de sondeo ─────────────────────────────────────────
 builder.Services.AddHostedService<EventPollingService>();
 
-// ── 7. WhatsApp (Cliente HTTP, Lógica de Negocio y Worker Independiente) ───────
+// ── 7. WhatsApp y Sincronización con Traccar ──────────────────────────────────
 builder.Services.AddHttpClient<IWhatsAppClient, WhatsAppClient>();
+builder.Services.AddHttpClient<ITraccarSpeedLimitService, TraccarSpeedLimitService>();
 builder.Services.AddScoped<IWhatsAppNotificationService, WhatsAppNotificationService>();
 builder.Services.AddHostedService<WhatsAppPollingService>();
 

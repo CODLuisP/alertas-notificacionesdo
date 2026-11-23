@@ -1,5 +1,6 @@
 using GeocercaNotificationsService.Models;
 using GeocercaNotificationsService.Repositories;
+using GeocercaNotificationsService.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,13 +17,16 @@ namespace GeocercaNotificationsService.Controllers;
 public sealed class ConfiguracionController : ControllerBase
 {
     private readonly IConfiguracionRepository _repository;
+    private readonly ITraccarSpeedLimitService _traccarSpeedLimit;
     private readonly ILogger<ConfiguracionController> _logger;
 
     public ConfiguracionController(
         IConfiguracionRepository repository,
+        ITraccarSpeedLimitService traccarSpeedLimit,
         ILogger<ConfiguracionController> logger)
     {
         _repository = repository;
+        _traccarSpeedLimit = traccarSpeedLimit;
         _logger = logger;
     }
 
@@ -135,10 +139,11 @@ public sealed class ConfiguracionController : ControllerBase
     }
 
     /// <summary>
-    /// Guarda la pestaña "Límites de velocidad" (modo flota o por vehículo, límite global y overrides por placa).
+    /// Guarda la pestaña "Límites de velocidad" (modo flota o por vehículo, límite global y overrides por placa)
+    /// y sincroniza automáticamente attributes.speedLimit (en nudos) en Traccar para las unidades de esa cuenta.
     /// </summary>
     [HttpPut("limites-velocidad")]
-    [ProducesResponseType(typeof(LimitesVelocidadDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(GuardarLimitesVelocidadResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SaveLimitesVelocidad(
         [FromQuery] string accountID,
@@ -151,7 +156,15 @@ public sealed class ConfiguracionController : ControllerBase
         try
         {
             var saved = await _repository.SaveLimitesVelocidadAsync(accountID, body, ct);
-            return Ok(saved);
+            var syncResult = await _traccarSpeedLimit.SyncAccountSpeedLimitsAsync(accountID, saved, ct);
+
+            return Ok(new GuardarLimitesVelocidadResponse
+            {
+                Modo = saved.Modo,
+                LimiteFlotaKmh = saved.LimiteFlotaKmh,
+                PorVehiculo = saved.PorVehiculo,
+                TraccarSync = syncResult
+            });
         }
         catch (Exception ex)
         {
