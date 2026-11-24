@@ -124,7 +124,8 @@ public sealed class AlertasController : ControllerBase
 
             var sql = $"""
                 SELECT id, accountID, deviceID, eventType, serverTime,
-                       latitude, longitude, speed, ignition, alarmType,
+                       COALESCE(latitude, 0) AS latitude, COALESCE(longitude, 0) AS longitude,
+                       speed, ignition, alarmType,
                        geofenceID, geofenceName, isEnviado
                 FROM deviceevent
                 {where}
